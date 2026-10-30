@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import person with context %}
+{% block title %}Verify · Vouch{% endblock %}
+{% block content %}
+<h1 class="detail-title">Verify a certificate</h1>
+<p class="muted mb-4">Paste the transaction hash and the fingerprint printed on a certificate. The app reads the chain and recomputes the fingerprint, so the result does not depend on trusting the certificate itself.</p>
+
+<form method="get" action="{{ url_for('verify') }}" class="verify-form">
+  <label class="form-label" for="v-tx">Transaction hash</label>
+  <input class="form-control mono" id="v-tx" name="tx" value="{{ h }}" placeholder="0x…" required>
+  <label class="form-label mt-3" for="v-fp">Fingerprint <span class="muted">(optional)</span></label>
+  <input class="form-control mono" id="v-fp" name="fp" value="{{ fp }}">
+  <button class="btn btn-ink mt-3">Verify</button>
+</form>
+
+{% if result %}
+  {% if result.state == 'authentic' %}
+  <div class="verdict ok"><i class="bi bi-patch-check-fill"></i><div><h2>Authentic</h2><p class="mb-0">This transaction exists on the chain and the fingerprint matches what the blockchain says.</p></div></div>
+  {% elif result.state == 'mismatch' %}
+  <div class="verdict bad"><i class="bi bi-x-octagon-fill"></i><div><h2>Does not match</h2><p class="mb-0">The transaction exists, but the fingerprint you entered is different from the real one below. The certificate may have been altered.</p></div></div>
+  {% elif result.state == 'found' %}
+  <div class="verdict info"><i class="bi bi-search"></i><div><h2>Found on chain</h2><p class="mb-0">No fingerprint was entered, so here is the real one to compare against your certificate.</p></div></div>
+  {% elif result.state == 'foreign' %}
+  <div class="verdict bad"><i class="bi bi-question-octagon-fill"></i><div><h2>Not a Vouch transaction</h2><p class="mb-0">The transaction exists but did not emit any event from this contract, so it cannot back a certificate.</p></div></div>
+  {% else %}
+  <div class="verdict bad"><i class="bi bi-x-octagon-fill"></i><div><h2>Not found</h2><p class="mb-0">No such transaction exists on this chain. If Ganache was restarted, old transactions are gone.</p></div></div>
+  {% endif %}
+
+  {% if result.d %}
+  <dl class="kv big mt-4">
+    {% if result.ev %}<dt>Type</dt><dd><span class="kind k-{{ result.ev.kind }}">{{ kind_names[result.ev.kind] }}</span></dd>
+    <dt>Campaign</dt><dd><a href="{{ url_for('campaign', cid=result.c.id) }}">#{{ result.c.id }} {{ result.c.title }}</a></dd>
+    <dt>Address</dt><dd>{{ person(result.ev.who) }}</dd>
+    {% if result.ev.kind != 'create' %}<dt>Amount</dt><dd>{{ result.ev.amount|eth }} ETH</dd>{% endif %}{% endif %}
+    <dt>Block</dt><dd>{{ result.d.block }} · {{ result.d.time|when }}</dd>
+    {% if result.fp %}<dt>Real fingerprint</dt><dd><code class="fp">{{ result.fp }}</code></dd>{% endif %}
+    <dt>Receipt</dt><dd><a href="{{ url_for('tx_page', h=result.d.hash) }}">Open transaction details</a></dd>
+  </dl>
+  {% endif %}
+{% endif %}
+{% endblock %}

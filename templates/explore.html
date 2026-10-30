@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card with context %}
+{% block title %}Explore · Vouch{% endblock %}
+{% block content %}
+<div class="page-h"><h1>Explore campaigns</h1><p class="muted">Every campaign here is enforced by the same contract: escrow, then payout or refund.</p></div>
+
+<form method="get" action="{{ url_for('explore') }}" class="filter-bar">
+  <div class="search"><i class="bi bi-search"></i>
+    <input type="search" name="q" value="{{ q }}" placeholder="Search campaigns" aria-label="Search campaigns"></div>
+  <select name="status" data-autosubmit aria-label="Status">
+    {% for v, n in (('all', 'Any status'), ('active', 'Active'), ('funded', 'Funded'), ('failed', 'Failed')) %}<option value="{{ v }}" {{ 'selected' if status == v }}>{{ n }}</option>{% endfor %}
+  </select>
+  <select name="sort" data-autosubmit aria-label="Sort">
+    {% for v, n in (('new', 'Newest'), ('ending', 'Ending soon'), ('funded', 'Most funded')) %}<option value="{{ v }}" {{ 'selected' if sort == v }}>{{ n }}</option>{% endfor %}
+  </select>
+  {% if cat %}<input type="hidden" name="cat" value="{{ cat }}">{% endif %}
+</form>
+
+<div class="chips-row" role="group" aria-label="Categories">
+  <a class="cchip {{ 'on' if not cat }}" href="{{ url_for('explore', q=q or None, status=status, sort=sort) }}">All</a>
+  {% for name, meta in categories.items() %}
+  <a class="cchip {{ 'on' if cat == name }}" href="{{ url_for('explore', cat=name, q=q or None, status=status, sort=sort) }}"><i class="bi bi-{{ meta.icon }}"></i>{{ name }}</a>
+  {% endfor %}
+</div>
+
+<p class="muted small my-3">{{ campaigns|length }} {{ 'campaign' if campaigns|length == 1 else 'campaigns' }}</p>
+{% if campaigns %}
+<div class="grid">{% for c in campaigns %}{{ card(c) }}{% endfor %}</div>
+{% else %}
+<div class="empty"><i class="bi bi-search"></i><h3>No campaigns match</h3>
+  <p class="muted">Try another category or clear the search.</p>
+  <a class="btn btn-outline-ink" href="{{ url_for('explore') }}">Clear filters</a></div>
+{% endif %}
+{% endblock %}

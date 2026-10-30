@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ev_table with context %}
+{% block title %}Activity · Vouch{% endblock %}
+{% block content %}
+<h1 class="detail-title">On-chain activity</h1>
+<p class="muted mb-4">Every transaction the contract has recorded, newest first. Click a transaction for its receipt and certificate.</p>
+{% if events %}{{ ev_table(events) }}{% else %}<p class="muted">Nothing has happened on this contract yet.</p>{% endif %}
+{% endblock %}

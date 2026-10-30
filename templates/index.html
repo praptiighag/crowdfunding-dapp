@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card with context %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <span class="eyebrow"><i class="bi bi-patch-check-fill"></i> Every pledge escrowed. Every step verifiable.</span>
+    <h1>Fundraising that <em>proves itself.</em></h1>
+    <p class="lead">Back projects you believe in. Your ETH waits in escrow until the deadline: reach the goal and the organizer is paid, miss it and everything goes back to you. No middleman, and every step comes with a receipt anyone can check.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-go btn-lg" href="{{ url_for('start') }}">Start a campaign</a>
+      <a class="btn btn-outline-ink btn-lg" href="{{ url_for('explore') }}">Explore campaigns</a>
+    </div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    {% for h in hero %}<div class="hc hc{{ loop.index }}">{{ h|cover }}</div>{% endfor %}
+    <span class="float f1"><i class="bi bi-safe2-fill"></i> In escrow</span>
+    <span class="float f2"><i class="bi bi-arrow-counterclockwise"></i> Refunded</span>
+    <span class="float f3"><i class="bi bi-patch-check-fill"></i> Verified</span>
+  </div>
+</section>
+
+<section class="trust" aria-label="Platform totals">
+  <div><b>{{ stats.raised|eth }}</b><span>ETH pledged</span></div>
+  <div><b>{{ stats.released|eth }}</b><span>ETH released to organizers</span></div>
+  <div><b>{{ stats.returned|eth }}</b><span>ETH refunded to backers</span></div>
+  <div><b>{{ stats.backers }}</b><span>backers so far</span></div>
+</section>
+
+<section class="block">
+  <div class="block-h"><h2>Back a campaign now</h2><a href="{{ url_for('explore') }}">See all <i class="bi bi-arrow-right"></i></a></div>
+  {% if active %}
+  <div class="grid">{% for c in active %}{{ card(c) }}{% endfor %}</div>
+  {% else %}
+  <div class="empty">
+    <i class="bi bi-rocket-takeoff"></i>
+    <h3>{{ 'No campaigns are running right now' if has_campaigns else 'Nothing here yet' }}</h3>
+    <p class="muted">{{ 'Launch one, or open the Demo guide to load sample campaigns.' if not has_campaigns else 'Launch your own, or check the settled campaigns below.' }}</p>
+    <div class="d-flex flex-wrap gap-2 justify-content-center">
+      <a class="btn btn-go" href="{{ url_for('start') }}">Start a campaign</a>
+      {% if not has_campaigns %}<form method="post" action="{{ url_for('demo_seed') }}" data-tx><button class="btn btn-outline-ink">Load sample campaigns</button></form>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<section class="block tint" id="how">
+  <div class="block-h"><h2>How Vouch works</h2></div>
+  <div class="how">
+    <div><span class="num">1</span><i class="bi bi-wallet2"></i><h3>You pledge</h3><p>Your ETH goes into the contract's escrow. The organizer cannot touch it.</p></div>
+    <div><span class="num">2</span><i class="bi bi-hourglass-split"></i><h3>The deadline decides</h3><p>Goal reached? The organizer can withdraw. Goal missed? Every backer can refund themselves.</p></div>
+    <div><span class="num">3</span><i class="bi bi-patch-check"></i><h3>Everything has proof</h3><p>Each pledge, payout and refund gets a receipt and a certificate you can verify against the chain.</p></div>
+  </div>
+</section>
+
+{% if finished %}
+<section class="block">
+  <div class="block-h"><h2>Recently settled</h2><a href="{{ url_for('explore', status='funded') }}">Funded campaigns <i class="bi bi-arrow-right"></i></a></div>
+  <div class="grid">{% for c in finished %}{{ card(c) }}{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="cta-band">
+  <div><h2>Got something worth funding?</h2><p class="mb-0">Set a goal and a deadline. If you fall short, your backers lose nothing.</p></div>
+  <a class="btn btn-go btn-lg" href="{{ url_for('start') }}">Start a campaign</a>
+</section>
+{% endblock %}

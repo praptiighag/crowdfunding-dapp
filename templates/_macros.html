@@ -1,0 +1,58 @@
+{# Shared building blocks. Import with: {% from "_macros.html" import ... with context %} #}
+{% macro person(a, size=24) %}<a class="who" href="{{ url_for('account', addr=a) }}" title="{{ a }}">{{ a|identicon(size) }}<span>{{ a|label }}</span></a>{% if a == cur_addr %}<span class="you">you</span>{% endif %}{% endmacro %}
+
+{% macro addr(a, size=22) %}<a class="addr" href="{{ url_for('account', addr=a) }}" title="{{ a }}">{{ a|identicon(size) }}<span>{{ a|short }}</span></a>{% endmacro %}
+
+{% macro txlink(h) %}<a class="mono" href="{{ url_for('tx_page', h=h) }}">{{ h|hashshort }}</a>{% endmacro %}
+
+{% macro badge(c) %}<span class="badge-s s-{{ c.status }}">{{ labels[c.status] }}</span>{% endmacro %}
+
+{# Funding meter: the vertical tick is the goal. Overfunded campaigns grow past it. #}
+{% macro meter(c, big=False) %}
+{% set scale = [c.percent, 100]|max %}
+<div class="meter s-{{ c.status }}{{ ' big' if big }}" style="--fill: {{ (c.percent * 100 / scale)|round(1) }}%; --goal: {{ (10000 / scale)|round(1) }}%"
+     role="progressbar" aria-valuenow="{{ c.percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Funding progress">
+  <span class="meter-fill"></span><span class="meter-goal"></span>
+</div>
+{% endmacro %}
+
+{% macro card(c) %}
+<a class="camp" href="{{ url_for('campaign', cid=c.id) }}">
+  <div class="camp-cover">{{ c|cover }}
+    <span class="chip-cat"><i class="bi bi-{{ categories[c.category].icon }}"></i>{{ c.category }}</span></div>
+  <div class="camp-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">{{ badge(c) }}
+      <span class="muted small">by {{ c.creator|label }}</span></div>
+    <h3>{{ c.title }}</h3>
+    <p class="muted clamp">{{ c.tagline }}</p>
+    {{ meter(c) }}
+    <div class="camp-nums"><span><b>{{ c.raised|eth }} ETH</b> raised</span><b>{{ c.percent }}%</b></div>
+    <div class="camp-foot muted small">
+      <span><i class="bi bi-people"></i> {{ c.backers }} {{ 'backer' if c.backers == 1 else 'backers' }}</span>
+      {% if c.status == 'active' %}<span><i class="bi bi-clock"></i> {{ c.remaining|timeleft }}</span>
+      {% elif c.status == 'funded' %}<span>Awaiting release</span>
+      {% elif c.status == 'withdrawn' %}<span>{{ c.raised|eth }} ETH released</span>
+      {% elif c.raised %}<span>{{ c.refunded|eth }} of {{ c.raised|eth }} ETH refunded</span>
+      {% else %}<span>Ended, no pledges</span>{% endif %}
+    </div>
+  </div>
+</a>
+{% endmacro %}
+
+{% macro ev_table(events, signed=False) %}
+<div class="table-wrap"><table class="tbl">
+  <thead><tr><th>Type</th><th>Campaign</th><th>Who</th><th class="num">Amount</th><th>Time</th><th>Transaction</th></tr></thead>
+  <tbody>
+  {% for e in events %}
+  <tr>
+    <td><span class="kind k-{{ e.kind }}">{{ kind_names[e.kind] }}</span></td>
+    <td><a href="{{ url_for('campaign', cid=e.cid) }}">{{ titles[e.cid] }}</a></td>
+    <td>{{ person(e.who, 22) }}</td>
+    <td class="num">{% if e.kind == 'create' %}<span class="muted">n/a</span>{% else %}{% if signed %}{{ '−' if e.kind == 'pledge' else '+' }}{% endif %}{{ e.amount|eth }} ETH{% endif %}</td>
+    <td class="muted">{{ e.time|when }}</td>
+    <td>{{ txlink(e.tx) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endmacro %}

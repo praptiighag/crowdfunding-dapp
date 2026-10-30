@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Certificate {{ cert_id }} · Vouch{% endblock %}
+{% block content %}
+<div class="cert-wrap">
+  <article class="cert">
+    <svg class="seal" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/>
+      <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3"/>
+      <path d="M32 51l12 12 24-26" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <p class="cert-kicker">Vouch · recorded on-chain</p>
+    <h1>{% if ev.kind == 'pledge' %}Certificate of Contribution{% elif ev.kind == 'claim' %}Certificate of Disbursement
+        {% elif ev.kind == 'refund' %}Certificate of Refund{% else %}Certificate of Registration{% endif %}</h1>
+
+    <p class="cert-body">
+      {% if ev.kind == 'pledge' %}This certifies that <b>{{ ev.who|label }}</b> <span class="mono">({{ ev.who }})</span> contributed to the campaign <b>“{{ c.title }}”</b> (No. {{ c.id }}), placing the amount below in escrow with the contract.
+      {% elif ev.kind == 'claim' %}This certifies that the funds raised for <b>“{{ c.title }}”</b> (No. {{ c.id }}) were released from escrow to its creator <b>{{ ev.who|label }}</b> <span class="mono">({{ ev.who }})</span> after the goal was reached.
+      {% elif ev.kind == 'refund' %}This certifies that <b>{{ ev.who|label }}</b> <span class="mono">({{ ev.who }})</span> was refunded from escrow because the campaign <b>“{{ c.title }}”</b> (No. {{ c.id }}) did not reach its goal.
+      {% else %}This certifies that <b>{{ ev.who|label }}</b> <span class="mono">({{ ev.who }})</span> registered the campaign <b>“{{ c.title }}”</b> (No. {{ c.id }}) with the goal and deadline shown, enforced by the contract.{% endif %}
+    </p>
+    <div class="cert-amount">{{ (c.goal if ev.kind == 'create' else ev.amount)|eth }} <small>ETH{% if ev.kind == 'create' %} goal{% endif %}</small></div>
+
+    <dl class="cert-grid">
+      <dt>Certificate ID</dt><dd>{{ cert_id }}</dd>
+      <dt>Recorded</dt><dd>{{ d.time|when }}</dd>
+      {% if ev.kind == 'create' %}<dt>Deadline</dt><dd>{{ c.deadline|when }}</dd>{% endif %}
+      <dt>Transaction</dt><dd class="mono text-break">{{ d.hash }}</dd>
+      <dt>Block</dt><dd>{{ d.block }} · <span class="mono text-break">{{ d.block_hash }}</span></dd>
+      <dt>Contract</dt><dd class="mono text-break">{{ contract_address }}</dd>
+      <dt>Network</dt><dd>Ganache private chain · chain ID {{ net.chain_id }}</dd>
+    </dl>
+
+    <div class="cert-verify">
+      <span>Fingerprint</span><code class="fp">{{ fp }}</code>
+      <p>No authority signs this page. Its authenticity comes from the chain: open the link below, or paste the transaction hash and fingerprint into the Verify page, and the app recomputes it from the blockchain.</p>
+      <p class="mono text-break mb-0">{{ verify_url }}</p>
+    </div>
+  </article>
+
+  <div class="d-flex flex-wrap gap-2 justify-content-center mt-4 no-print">
+    <button class="btn btn-ink" onclick="window.print()"><i class="bi bi-printer"></i> Print or save as PDF</button>
+    <a class="btn btn-outline-ink" href="{{ url_for('tx_page', h=d.hash) }}">Transaction details</a>
+    <a class="btn btn-outline-ink" href="{{ url_for('verify', tx=d.hash, fp=fp) }}">Verify on chain</a>
+    <a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">Back to campaign</a>
+  </div>
+</div>
+{% endblock %}

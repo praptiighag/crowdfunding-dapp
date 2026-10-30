@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Start a campaign · Vouch{% endblock %}
+{% block content %}
+<div class="page-h"><h1>Start a campaign</h1>
+  <p class="muted">Three quick steps. You launch as <b>{{ cur_name }}</b>, the only account that can withdraw the funds.</p></div>
+
+<div class="row g-5">
+  <div class="col-lg-7">
+    <ol class="wsteps" aria-label="Steps"><li class="on" data-ws="1">Story</li><li data-ws="2">Funding</li><li data-ws="3">Review</li></ol>
+    <form id="startForm" method="post" action="{{ url_for('start') }}" data-tx>
+      <section data-step="1" class="vstack gap-3">
+        <div><label class="form-label" for="s-title">Campaign title</label>
+          <input class="form-control form-control-lg" id="s-title" name="title" maxlength="80" required placeholder="Library on Wheels"></div>
+        <fieldset><legend class="form-label">Category</legend>
+          <div class="cat-pick">
+            {% for name, meta in categories.items() %}
+            <label><input type="radio" name="category" value="{{ name }}" {{ 'checked' if loop.first }}><span><i class="bi bi-{{ meta.icon }}"></i>{{ name }}</span></label>
+            {% endfor %}
+          </div></fieldset>
+        <div><label class="form-label" for="s-tag">One-line summary <span class="muted">(shown on cards)</span></label>
+          <input class="form-control" id="s-tag" name="tagline" maxlength="140" placeholder="A bike-powered mobile library for villages with no reading room."></div>
+        <div><label class="form-label" for="s-story">Your story</label>
+          <textarea class="form-control" id="s-story" name="description" rows="6" required placeholder="What are you building, who is it for, and what will the money pay for?"></textarea></div>
+      </section>
+
+      <section data-step="2" class="vstack gap-3" hidden>
+        <div class="row g-3">
+          <div class="col-sm-6"><label class="form-label" for="s-goal">Funding goal (ETH)</label>
+            <input class="form-control form-control-lg" id="s-goal" name="goal" type="number" step="0.01" min="0.01" value="5" required></div>
+          <div class="col-sm-6"><label class="form-label" for="s-dur">Duration</label>
+            <select class="form-select form-select-lg" id="s-dur" name="minutes">
+              {% for m, n in durations %}<option value="{{ m }}" {{ 'selected' if m == 5 }}>{{ n }}</option>{% endfor %}
+            </select></div>
+        </div>
+        <div class="note"><i class="bi bi-info-circle"></i> All-or-nothing: if the goal is not reached by the deadline, every backer can refund their pledge in full. Pick the demo durations to show the whole cycle in minutes.</div>
+      </section>
+
+      <section data-step="3" class="vstack gap-3" hidden>
+        <dl class="kv big" id="review"></dl>
+        <div class="note"><i class="bi bi-shield-check"></i> Launching sends one transaction from {{ cur_name }}. You will get a registration certificate with the exact goal and deadline, recorded on-chain.</div>
+      </section>
+
+      <div class="wiz-nav">
+        <button type="button" class="btn btn-outline-ink" id="back" hidden>Back</button>
+        <button type="button" class="btn btn-ink" id="next">Continue</button>
+        <button type="submit" class="btn btn-go btn-lg" id="launch" hidden>Launch campaign</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="preview-wrap"><p class="muted small mb-2">Live preview</p>
+      <div class="camp preview">
+        <div class="camp-cover" id="pv-cover"><span class="chip-cat" id="pv-cat"></span></div>
+        <div class="camp-body">
+          <div class="mb-2"><span class="badge-s s-active">Active</span></div>
+          <h3 id="pv-title">Your campaign title</h3>
+          <p class="muted clamp" id="pv-tag">Your one-line summary appears here.</p>
+          <div class="meter s-active" style="--fill: 0%; --goal: 100%"><span class="meter-fill"></span><span class="meter-goal"></span></div>
+          <div class="camp-nums"><span><b>0 ETH</b> of <span id="pv-goal">5</span> ETH goal</span><b>0%</b></div>
+        </div>
+      </div>
+      <p class="muted small mt-2">Your cover art is generated from your title when you launch.</p>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="cats">{{ categories|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script>
+  const cats = JSON.parse(document.getElementById('cats').textContent);
+  const $ = id => document.getElementById(id), f = $('startForm');
+  const val = n => f.elements[n].value, cat = () => f.querySelector('[name=category]:checked').value;
+  let step = 1;
+  function paint() {
+    const [a, b] = cats[cat()].colors;
+    $('pv-cover').style.background = `linear-gradient(135deg, ${a}, ${b})`;
+    $('pv-cat').innerHTML = `<i class="bi bi-${cats[cat()].icon}"></i>${cat()}`;
+    $('pv-title').textContent = val('title') || 'Your campaign title';
+    $('pv-tag').textContent = val('tagline') || 'Your one-line summary appears here.';
+    $('pv-goal').textContent = val('goal') || '0';
+  }
+  function show(n) {
+    step = n;
+    f.querySelectorAll('[data-step]').forEach(s => s.hidden = +s.dataset.step !== n);
+    document.querySelectorAll('[data-ws]').forEach(li => li.classList.toggle('on', +li.dataset.ws <= n));
+    $('back').hidden = n === 1; $('next').hidden = n === 3; $('launch').hidden = n !== 3;
+    if (n === 3) {
+      const dur = f.elements.minutes.selectedOptions[0].text;
+      $('review').innerHTML = [['Title', val('title')], ['Category', cat()], ['Goal', val('goal') + ' ETH'], ['Duration', dur], ['Organizer', '{{ cur_name }}']]
+        .map(([k, v]) => `<dt>${k}</dt><dd></dd>`).join('');
+      $('review').querySelectorAll('dd').forEach((dd, i) => dd.textContent = [val('title'), cat(), val('goal') + ' ETH', dur, '{{ cur_name }}'][i]);
+    }
+  }
+  const valid = () => [...f.querySelectorAll(`[data-step="${step}"] input, [data-step="${step}"] textarea, [data-step="${step}"] select`)].every(i => i.reportValidity());
+  $('next').onclick = () => valid() && show(step + 1);
+  $('back').onclick = () => show(step - 1);
+  f.addEventListener('input', paint); f.addEventListener('change', paint);
+  f.addEventListener('submit', e => { if (step !== 3) { e.preventDefault(); valid() && show(step + 1); } });
+  paint();
+</script>
+{% endblock %}

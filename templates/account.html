@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import txlink with context %}
+{% block title %}{{ addr|short }} · Vouch{% endblock %}
+{% block content %}
+<div class="acct-head">
+  {{ addr|identicon(72) }}
+  <div class="flex-grow-1">
+    <h1 class="detail-title m-0">{% if addr == contract_address %}Crowdfunding contract{% else %}{{ addr|label }}{% endif %}</h1>
+    <p class="mono muted mb-0 text-break">{{ addr }} <button class="copy" data-copy="{{ addr }}" aria-label="Copy address"><i class="bi bi-clipboard"></i></button></p>
+  </div>
+  {% if index is not none and index != cur %}
+  <form method="post" action="{{ url_for('select_account') }}" class="no-print">
+    <input type="hidden" name="acct" value="{{ index }}"><button class="btn btn-ink">Switch to this account</button></form>
+  {% elif index == cur %}<span class="you">active account</span>{% endif %}
+</div>
+
+<div class="stats">
+  <div><b>{{ stats.balance|eth }}</b><span>ETH balance</span></div>
+  <div><b>{{ stats.pledged|eth }}</b><span>ETH pledged to campaigns</span></div>
+  <div><b>{{ stats.refunded|eth }}</b><span>ETH refunded to this account</span></div>
+  <div><b>{{ stats.released|eth }}</b><span>ETH released to this account</span></div>
+  <div><b>{{ stats.fees|fee }}</b><span>ETH paid in network fees</span></div>
+</div>
+
+<h2 class="section-h">Transactions</h2>
+{% if rows %}
+<div class="table-wrap"><table class="tbl">
+  <thead><tr><th>Type</th><th>Campaign</th><th class="num">Amount</th><th class="num">Fee</th><th>Time</th><th>Transaction</th></tr></thead>
+  <tbody>
+  {% for r in rows %}{% set e = r.e %}
+  <tr>
+    <td><span class="kind k-{{ e.kind }}">{{ kind_names[e.kind] }}</span></td>
+    <td><a href="{{ url_for('campaign', cid=e.cid) }}">{{ titles[e.cid] }}</a></td>
+    <td class="num {{ 'neg' if e.kind == 'pledge' else 'pos' if e.kind in ('claim', 'refund') }}">
+      {% if e.kind == 'create' %}<span class="muted">n/a</span>{% else %}{{ '−' if e.kind == 'pledge' else '+' }}{{ e.amount|eth }} ETH{% endif %}</td>
+    <td class="num muted">{{ r.fee|fee }}</td>
+    <td class="muted">{{ e.time|when }}</td>
+    <td>{{ txlink(e.tx) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small mt-2">Red amounts left this account, green amounts arrived. Fees are paid on top of every transaction. Every row links to its receipt and certificate.</p>
+{% else %}
+<p class="muted">This address has no Vouch transactions yet.</p>
+{% endif %}
+{% endblock %}

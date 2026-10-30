@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% from "_macros.html" import person, addr, txlink, badge, meter with context %}
+{% block title %}{{ c.title }} · Vouch{% endblock %}
+{% block content %}
+{% if launched %}
+<div class="confirmed"><i class="bi bi-rocket-takeoff-fill"></i>
+  <div class="flex-grow-1"><h2>Your campaign is live</h2>
+    <p class="mb-0">It is registered on-chain with its goal and deadline. <a href="{{ url_for('tx_page', h=launched) }}">View receipt</a> ·
+      <a href="{{ url_for('certificate', h=launched) }}">Registration certificate</a></p></div>
+  <button class="btn btn-ink" data-copy="{{ request.base_url }}"><i class="bi bi-link-45deg"></i> Copy link</button></div>
+{% endif %}
+
+<nav class="crumbs" aria-label="Breadcrumb"><a href="{{ url_for('explore') }}">Explore</a><i class="bi bi-chevron-right"></i>
+  <a href="{{ url_for('explore', cat=c.category) }}">{{ c.category }}</a></nav>
+
+<div class="row g-5 mt-0">
+  <div class="col-lg-8">
+    <div class="hero-cover">{{ c|cover }}
+      <span class="chip-cat"><i class="bi bi-{{ categories[c.category].icon }}"></i>{{ c.category }}</span></div>
+    <h1 class="detail-title">{{ c.title }}</h1>
+    <p class="lead muted">{{ c.tagline }}</p>
+    <p class="organizer">{{ person(c.creator, 32) }} <span class="muted">is the organizer</span>
+      {% if c.created %}<span class="muted">· launched {{ c.created.time|when }}</span>{% endif %}</p>
+
+    <ol class="steps" aria-label="Campaign progress">
+      {% for s in stepper %}<li class="{{ s.state }}"><i></i><span>{{ s.label }}</span></li>{% endfor %}
+    </ol>
+
+    <section class="settle settle-{{ c.status }}">
+      {% if c.status == 'active' %}
+        <i class="bi bi-safe2"></i>
+        <div><h2>Held in escrow</h2><p>{{ c.escrow|eth }} ETH is locked in the contract. If the goal is reached by the deadline the organizer can withdraw it. Otherwise every backer can take their own pledge back.</p></div>
+      {% elif c.status == 'funded' %}
+        <i class="bi bi-hourglass-split"></i>
+        <div><h2>Goal reached, release pending</h2><p>{{ c.escrow|eth }} ETH is waiting in escrow for {{ person(c.creator) }} to withdraw it.</p></div>
+      {% elif c.status == 'withdrawn' %}
+        <i class="bi bi-check-circle-fill"></i>
+        <div><h2>Funds released to the organizer</h2>
+          <p>{{ c.raised|eth }} ETH was paid out to {{ person(c.creator) }}{% if c.claim %} on {{ c.claim.time|when }}{% endif %}. Escrow is now 0 ETH.</p>
+          {% if c.claim %}<p class="links"><a href="{{ url_for('tx_page', h=c.claim.tx) }}">View transaction</a><a href="{{ url_for('certificate', h=c.claim.tx) }}">Disbursement certificate</a></p>{% endif %}</div>
+      {% elif c.raised == 0 %}
+        <i class="bi bi-slash-circle"></i><div><h2>Closed with no pledges</h2><p>The deadline passed without any backers, so there is nothing to release or refund.</p></div>
+      {% else %}
+        <i class="bi bi-arrow-counterclockwise"></i>
+        <div class="flex-grow-1"><h2>Goal missed, refunds open</h2>
+          <p>{{ c.refunded|eth }} of {{ c.raised|eth }} ETH has been returned to backers. {% if c.escrow %}{{ c.escrow|eth }} ETH is still in escrow and each backer can claim theirs at any time.{% else %}Every backer has been refunded.{% endif %}</p>
+          <div class="bar"><span style="width: {{ (c.refunded * 100 / c.raised)|round(1) }}%"></span></div></div>
+      {% endif %}
+    </section>
+
+    <ul class="nav nav-pills tabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-story" role="tab">Story</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-updates" role="tab">Updates <span class="count">{{ c.updates|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-backers" role="tab">Backers <span class="count">{{ backers|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-proof" role="tab">Proof trail <span class="count">{{ ledger|length }}</span></button></li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="tab-story" role="tabpanel">
+        <p class="desc">{{ c.description or 'The organizer has not written a story yet.' }}</p>
+        <h2 class="section-h">Funding timeline</h2>
+        <div class="chart-card">
+          <svg viewBox="0 0 {{ series.w }} {{ series.h }}" class="chart" role="img" aria-label="Pledges over time against the goal">
+            <polygon points="{{ series.area }}" class="chart-area"/>
+            <line x1="{{ series.left }}" x2="{{ series.right }}" y1="{{ series.goal_y }}" y2="{{ series.goal_y }}" class="chart-goal"/>
+            <polyline points="{{ series.line }}" class="chart-line"/>
+            <line x1="{{ series.now_x }}" x2="{{ series.now_x }}" y1="8" y2="{{ series.base }}" class="chart-now"/>
+            <text x="{{ series.right }}" y="{{ series.goal_y - 6 }}" text-anchor="end" class="chart-label">Goal {{ c.goal|eth }} ETH</text>
+          </svg>
+          <div class="chart-axis"><span>Launched</span><span>Now</span><span>Deadline {{ c.deadline|when }}</span></div>
+        </div>
+        <h2 class="section-h">How your pledge is protected</h2>
+        <ul class="protect">
+          <li><i class="bi bi-safe2"></i><div><b>Escrow, not trust.</b> Pledges are held by the contract. The organizer cannot reach them early.</div></li>
+          <li><i class="bi bi-arrow-counterclockwise"></i><div><b>Automatic refunds.</b> If the goal is missed, you can pull your pledge back yourself. No approval needed.</div></li>
+          <li><i class="bi bi-patch-check"></i><div><b>Proof for every step.</b> Each pledge, payout and refund has a receipt and a certificate you can verify.</div></li>
+        </ul>
+      </div>
+
+      <div class="tab-pane fade" id="tab-updates" role="tabpanel">
+        {% if c.creator == cur_addr %}
+        <form method="post" action="{{ url_for('post_update', cid=c.id) }}" class="update-form">
+          <label class="form-label" for="u-text">Post an update for your backers</label>
+          <textarea class="form-control" id="u-text" name="text" rows="3" maxlength="600" required></textarea>
+          <button class="btn btn-ink mt-2">Post update</button></form>
+        {% endif %}
+        {% if c.updates %}
+        <ul class="updates">{% for u in c.updates %}
+          <li><span class="muted small">{{ u.time|when }}</span><p>{{ u.text }}</p></li>{% endfor %}</ul>
+        {% else %}<p class="muted">No updates yet.{% if c.creator != cur_addr %} The organizer can post news here.{% endif %}</p>{% endif %}
+      </div>
+
+      <div class="tab-pane fade" id="tab-backers" role="tabpanel">
+        {% if backers %}
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th>Backer</th><th class="num">Pledged</th><th>Outcome</th></tr></thead>
+          <tbody>{% for b in backers %}<tr>
+            <td>{{ person(b.addr) }}</td><td class="num">{{ b.pledged|eth }} ETH</td>
+            <td>{% if c.status == 'failed' %}
+                  {% if b.refund %}<span class="kind k-refund">Refunded</span> {{ txlink(b.refund.tx) }}{% else %}<span class="kind k-wait">Refund waiting</span>{% endif %}
+                {% elif c.status == 'active' %}<span class="kind k-pledge">In escrow</span>
+                {% elif c.status == 'funded' %}<span class="kind k-pledge">Awaiting release</span>
+                {% else %}<span class="kind k-claim">Released to organizer</span>{% endif %}</td>
+          </tr>{% endfor %}</tbody></table></div>
+        {% else %}<p class="muted">No backers yet. Be the first.</p>{% endif %}
+      </div>
+
+      <div class="tab-pane fade" id="tab-proof" role="tabpanel">
+        <ul class="ledger">{% for e in ledger %}
+          <li class="k-{{ e.kind }}"><span class="dot"></span><div class="flex-grow-1">
+            <b>{% if e.kind == 'pledge' %}{{ e.who|label }} pledged {{ e.amount|eth }} ETH
+               {% elif e.kind == 'claim' %}Organizer withdrew {{ e.amount|eth }} ETH
+               {% elif e.kind == 'refund' %}{{ e.who|label }} was refunded {{ e.amount|eth }} ETH
+               {% else %}Campaign launched by {{ e.who|label }}{% endif %}</b>
+            <div class="muted small">{{ e.time|when }} · {{ txlink(e.tx) }} · <a href="{{ url_for('certificate', h=e.tx) }}">certificate</a></div></div></li>{% endfor %}</ul>
+      </div>
+    </div>
+  </div>
+
+  <aside class="col-lg-4">
+    <div class="fund-card">
+      <div class="raised"><b>{{ c.raised|eth }} ETH</b><span>pledged of {{ c.goal|eth }} ETH goal</span></div>
+      {{ meter(c, True) }}
+      <div class="fund-facts">
+        <div><b>{{ c.percent }}%</b><span>funded</span></div>
+        <div><b>{{ c.backers }}</b><span>{{ 'backer' if c.backers == 1 else 'backers' }}</span></div>
+        <div><b>{% if c.status == 'active' %}<span data-countdown="{{ c.remaining }}"></span>{% else %}Ended{% endif %}</b><span>{{ 'left' if c.status == 'active' else 'deadline passed' }}</span></div>
+      </div>
+
+      <div class="acting">{{ cur_addr|identicon(30) }}<div class="lh-sm"><span class="muted small">Acting as</span><br><b>{{ cur_name }}</b>
+        <span class="muted small"> · {{ me.bal|eth }} ETH</span></div></div>
+
+      {% if c.status == 'active' %}
+      <form id="pledgeForm" method="post" action="{{ url_for('pledge', cid=c.id) }}" data-tx>
+        <label class="form-label" for="amount">Your pledge (ETH)</label>
+        <input class="form-control form-control-lg" id="amount" name="amount" type="number" step="0.01" min="0.01" value="1" required>
+        <div class="chips">
+          {% for v in ('0.5', '1', '2', '5') %}<button type="button" data-v="{{ v }}">{{ v }}</button>{% endfor %}
+          {% if to_goal %}<button type="button" data-v="{{ to_goal|eth }}">Fund the rest ({{ to_goal|eth }})</button>{% endif %}
+        </div>
+        <button type="button" class="btn btn-go w-100 btn-lg mt-3" id="review">Back this campaign</button>
+      </form>
+      {% elif c.status == 'funded' %}
+        {% if c.creator == cur_addr %}
+        <p>You reached the goal. Move {{ c.escrow|eth }} ETH from escrow to your account.</p>
+        <form method="post" action="{{ url_for('withdraw', cid=c.id) }}" data-tx><button class="btn btn-go w-100 btn-lg">Withdraw {{ c.escrow|eth }} ETH</button></form>
+        {% else %}<p class="mb-0">The goal was reached. Only the organizer can withdraw. Switch to {{ c.creator|label }} in the account menu to do it.</p>{% endif %}
+      {% elif c.status == 'failed' %}
+        {% if my_pledge > 0 %}
+        <p>The goal was missed. Your pledge is still in escrow and can be returned to you.</p>
+        <form method="post" action="{{ url_for('refund', cid=c.id) }}" data-tx><button class="btn btn-go w-100 btn-lg">Refund {{ my_pledge|eth }} ETH</button></form>
+        {% else %}<p class="mb-0">The goal was missed, so backers can refund themselves. {{ cur_name }} has nothing left to refund here.</p>{% endif %}
+      {% else %}
+        <p class="mb-0">The organizer has withdrawn the funds. This campaign is closed.</p>
+      {% endif %}
+
+      <div class="fund-foot">
+        <div class="d-flex justify-content-between"><span class="muted">Your pledge here</span><b>{{ my_pledge|eth }} ETH</b></div>
+        <div class="d-flex justify-content-between"><span class="muted">Held in escrow</span><b>{{ c.escrow|eth }} ETH</b></div>
+      </div>
+      <button class="btn btn-outline-ink w-100 mt-3" data-copy="{{ request.base_url }}"><i class="bi bi-share"></i> Share this campaign</button>
+    </div>
+  </aside>
+</div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-4" id="confirmTitle">Confirm your pledge</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <div class="confirm-amount"><span id="cAmount">0</span> ETH</div>
+      <dl class="kv">
+        <dt>From</dt><dd class="d-flex align-items-center gap-2">{{ cur_addr|identicon(22) }}{{ cur_name }} · {{ cur_addr|short }}</dd>
+        <dt>To</dt><dd>Vouch escrow contract · {{ contract_address|short }}</dd>
+        <dt>Campaign</dt><dd>{{ c.title }}</dd>
+        <dt>Network fee</dt><dd>A small gas fee is also paid from this account</dd>
+      </dl>
+      <p class="muted small mb-0">The ETH moves into escrow, not to the organizer. If the goal is missed you can refund it after the deadline.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-ink" data-bs-dismiss="modal">Cancel</button>
+      <button type="submit" form="pledgeForm" id="confirmBtn" class="btn btn-go">Confirm and send</button>
+    </div>
+  </div></div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if c.status == 'active' %}
+<script>
+  const form = document.getElementById('pledgeForm'), amount = document.getElementById('amount');
+  let confirmed = false;
+  document.querySelectorAll('.chips button').forEach(b => b.addEventListener('click', () => amount.value = b.dataset.v));
+  const review = () => { if (!form.reportValidity()) return;
+    document.getElementById('cAmount').textContent = amount.value; bootstrap.Modal.getOrCreateInstance('#confirmModal').show(); };
+  document.getElementById('review').addEventListener('click', review);
+  document.getElementById('confirmBtn').addEventListener('click', () => confirmed = true);
+  form.addEventListener('submit', e => { if (!confirmed) { e.preventDefault(); review(); } });
+</script>
+{% endif %}
+{% endblock %}

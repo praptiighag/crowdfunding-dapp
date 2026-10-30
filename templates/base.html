@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Vouch · Fundraising that proves itself{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar no-print">
+  <div class="container d-flex align-items-center gap-3 py-2">
+    <a href="{{ url_for('index') }}" class="brand" aria-label="Vouch home">
+      <svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="#5b3df5" stroke-width="4"/><path d="M12 21l6 6 11-13" fill="none" stroke="#ff6b2c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Vouch</span></a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="{{ url_for('explore') }}">Explore</a>
+      <a href="{{ url_for('index', _anchor='how') }}">How it works</a>
+      <a href="{{ url_for('verify') }}">Verify</a>
+    </nav>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <a class="btn btn-go d-none d-sm-inline-flex" href="{{ url_for('start') }}">Start a campaign</a>
+
+      <div class="dropdown">
+        <button class="icon-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Time travel (demo)" title="Demo: move the Ganache clock forward"><i class="bi bi-clock-history"></i></button>
+        <div class="dropdown-menu dropdown-menu-end p-2 time-menu">
+          <div class="menu-h">Time travel <span>demo only</span></div>
+          <p class="muted small px-2 mb-2">Jump the chain clock forward so deadlines pass.</p>
+          {% for secs, name in ((60, '1 minute'), (3600, '1 hour'), (86400, '1 day')) %}
+          <form method="post" action="{{ url_for('skip_time') }}"><input type="hidden" name="secs" value="{{ secs }}">
+            <button class="dropdown-item rounded">+ {{ name }}</button></form>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="dropdown">
+        <button class="wallet" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Switch account">
+          {{ cur_addr|identicon(32) }}
+          <span class="wallet-text"><b>{{ cur_name }}</b><small>{{ me.bal|eth }} ETH</small></span>
+          {% if actions.withdraw + actions.refund %}<span class="dot-badge" aria-label="Action needed">{{ actions.withdraw + actions.refund }}</span>{% endif %}
+          <i class="bi bi-chevron-down"></i>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end wallet-menu">
+          <div class="menu-h">Acting as <span>test accounts on Ganache</span></div>
+          <div class="menu-list">
+            {% for a in accts %}
+            <form method="post" action="{{ url_for('select_account') }}">
+              <input type="hidden" name="acct" value="{{ a.i }}">
+              <button class="acct-row {{ 'on' if a.i == cur }}">
+                {{ a.addr|identicon(36) }}
+                <span class="acct-id"><b>{{ a.name }}</b><small>Account {{ a.i }} · {{ a.addr|short }}</small></span>
+                <span class="acct-bal">{{ a.bal|eth }} ETH</span>
+                <i class="bi {{ 'bi-check-circle-fill' if a.i == cur else 'bi-circle' }}"></i>
+              </button>
+            </form>
+            {% endfor %}
+          </div>
+          <div class="menu-f">
+            <a href="{{ url_for('my_campaigns') }}"><i class="bi bi-megaphone"></i> My campaigns
+              {% if actions.withdraw %}<span class="pill-n">{{ actions.withdraw }} to withdraw</span>{% endif %}</a>
+            <a href="{{ url_for('my_pledges_page') }}"><i class="bi bi-heart"></i> My pledges
+              {% if actions.refund %}<span class="pill-n">{{ actions.refund }} refund{{ '' if actions.refund == 1 else 's' }}</span>{% endif %}</a>
+            <a href="{{ url_for('account_me') }}"><i class="bi bi-wallet2"></i> Wallet and spending</a>
+            <button type="button" data-copy="{{ cur_addr }}"><i class="bi bi-clipboard"></i> Copy address</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="toast-container position-fixed top-0 end-0 p-3 no-print">
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}
+  <div class="toast align-items-center text-bg-{{ cat }} border-0" role="alert" data-bs-delay="6000">
+    <div class="d-flex"><div class="toast-body">{{ msg }}</div>
+    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
+  </div>
+  {% endfor %}
+</div>
+
+<main id="main" class="container py-4 py-lg-5">{% block content %}{% endblock %}</main>
+
+<footer class="site-foot no-print">
+  <div class="container d-flex flex-wrap justify-content-between gap-3 py-4">
+    <div><b class="brand-sm">Vouch</b><div class="muted small">Fundraising that proves itself. Test ETH only.</div></div>
+    <div class="muted small text-md-end">
+      <span class="net-dot"></span>Ganache · chain {{ net.chain_id }} · block {{ net.block }}<br>
+      Contract <a class="mono" href="{{ url_for('account', addr=contract_address) }}">{{ contract_address|short }}</a>
+      · <a href="{{ url_for('activity') }}">Activity</a>
+    </div>
+  </div>
+</footer>
+
+<button class="guide-fab no-print" data-bs-toggle="offcanvas" data-bs-target="#guide" aria-controls="guide">
+  <i class="bi bi-signpost-split"></i> Demo guide <b>{{ guide_done }}/{{ guide|length }}</b></button>
+<aside class="offcanvas offcanvas-end" tabindex="-1" id="guide" aria-labelledby="guideTitle">
+  <div class="offcanvas-header"><h2 class="offcanvas-title fs-4" id="guideTitle">Demo guide</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+  <div class="offcanvas-body">
+    <p class="muted">A walk through everything Vouch does. Steps tick off by themselves as the chain records them.</p>
+    <div class="bar mb-3"><span style="width: {{ (guide_done * 100 / guide|length)|round }}%"></span></div>
+    <ol class="guide-list">
+      {% for s in guide %}
+      <li class="{{ 'done' if s.done }}"><i class="bi {{ 'bi-check-circle-fill' if s.done else 'bi-circle' }}"></i>
+        <div><b>{{ s.title }}</b><div class="muted small">{{ s.hint }}</div></div></li>
+      {% endfor %}
+    </ol>
+    {% if not guide[0].done %}
+    <form method="post" action="{{ url_for('demo_seed') }}" data-tx>
+      <button class="btn btn-go w-100">Load sample campaigns</button>
+      <p class="muted small mt-2">Creates 6 campaigns with real transactions from different accounts. Alice, Bob and Carol are the organizers.</p></form>
+    {% endif %}
+  </div>
+</aside>
+
+<div id="txOverlay" class="tx-overlay" hidden role="status" aria-live="polite">
+  <div class="tx-card"><div class="spin"></div><b>Sending to the network…</b><span class="muted">Waiting for the block to be mined</span></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

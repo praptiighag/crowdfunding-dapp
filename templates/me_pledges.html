@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, meter, txlink with context %}
+{% block title %}My pledges · Vouch{% endblock %}
+{% block content %}
+<div class="page-h"><h1>My pledges</h1>
+  <p class="muted mb-0">Everything {{ cur_name }} has backed{% if rows %}: <b>{{ total|eth }} ETH</b> across {{ rows|length }} {{ 'campaign' if rows|length == 1 else 'campaigns' }}{% endif %}.</p></div>
+
+{% if rows %}
+<div class="rows">
+  {% for r in rows %}{% set c = r.c %}
+  <article class="row-card {{ 'needs' if r.can_refund }}">
+    <a class="rc-cover" href="{{ url_for('campaign', cid=c.id) }}" tabindex="-1" aria-hidden="true">{{ c|cover }}</a>
+    <div class="rc-main">
+      <div class="d-flex flex-wrap align-items-center gap-2">{{ badge(c) }}<span class="muted small">by {{ c.creator|label }}</span></div>
+      <h2><a href="{{ url_for('campaign', cid=c.id) }}">{{ c.title }}</a></h2>
+      {{ meter(c) }}
+      <div class="camp-nums"><span>You pledged <b>{{ r.amount|eth }} ETH</b></span>
+        <span class="muted">{{ c.percent }}% of goal</span></div>
+    </div>
+    <div class="rc-act">
+      {% if r.can_refund %}
+        <span class="need"><i class="bi bi-exclamation-circle-fill"></i> Refund available</span>
+        <form method="post" action="{{ url_for('refund', cid=c.id) }}" data-tx><button class="btn btn-go">Refund {{ r.amount|eth }} ETH</button></form>
+      {% elif r.refunded %}<span class="ok small"><i class="bi bi-check-circle-fill"></i> Refunded to you</span><a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">View</a>
+      {% elif c.status == 'active' %}<span class="muted small">In escrow · {{ c.remaining|timeleft }}</span><a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">View</a>
+      {% elif c.status == 'funded' %}<span class="muted small">Goal reached. Awaiting release.</span><a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">View</a>
+      {% else %}<span class="ok small"><i class="bi bi-check-circle-fill"></i> Funded and released</span><a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">View</a>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><i class="bi bi-heart"></i><h3>{{ cur_name }} has not backed anything yet</h3>
+  <p class="muted">Find something worth supporting, or switch accounts to see another backer's pledges.</p>
+  <a class="btn btn-go" href="{{ url_for('explore') }}">Explore campaigns</a></div>
+{% endif %}
+{% endblock %}

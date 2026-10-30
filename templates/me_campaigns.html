@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, meter with context %}
+{% block title %}My campaigns · Vouch{% endblock %}
+{% block content %}
+<div class="page-h d-flex flex-wrap justify-content-between align-items-end gap-3">
+  <div><h1>My campaigns</h1><p class="muted mb-0">Everything {{ cur_name }} has launched. Switch accounts to see someone else's.</p></div>
+  <a class="btn btn-go" href="{{ url_for('start') }}">Start a campaign</a></div>
+
+{% if campaigns %}
+<div class="rows">
+  {% for c in campaigns %}
+  <article class="row-card {{ 'needs' if c.status == 'funded' }}">
+    <a class="rc-cover" href="{{ url_for('campaign', cid=c.id) }}" tabindex="-1" aria-hidden="true">{{ c|cover }}</a>
+    <div class="rc-main">
+      <div class="d-flex flex-wrap align-items-center gap-2">{{ badge(c) }}<span class="muted small">{{ c.category }}</span></div>
+      <h2><a href="{{ url_for('campaign', cid=c.id) }}">{{ c.title }}</a></h2>
+      {{ meter(c) }}
+      <div class="camp-nums"><span><b>{{ c.raised|eth }} ETH</b> of {{ c.goal|eth }} · {{ c.backers }} {{ 'backer' if c.backers == 1 else 'backers' }}</span>
+        <span class="muted">{{ c.remaining|timeleft if c.status == 'active' else 'Ended' }}</span></div>
+    </div>
+    <div class="rc-act">
+      {% if c.status == 'funded' %}
+        <span class="need"><i class="bi bi-exclamation-circle-fill"></i> Action needed</span>
+        <form method="post" action="{{ url_for('withdraw', cid=c.id) }}" data-tx><button class="btn btn-go">Withdraw {{ c.escrow|eth }} ETH</button></form>
+      {% elif c.status == 'failed' %}<span class="muted small">Goal missed. Backers can refund.</span><a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">View</a>
+      {% elif c.status == 'withdrawn' %}<span class="ok small"><i class="bi bi-check-circle-fill"></i> {{ c.raised|eth }} ETH released</span><a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">View</a>
+      {% else %}<span class="muted small">{{ c.escrow|eth }} ETH in escrow</span><a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">Manage</a>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><i class="bi bi-megaphone"></i><h3>{{ cur_name }} has not launched a campaign</h3>
+  <p class="muted">Start one, or switch to another account from the menu at the top right.</p>
+  <a class="btn btn-go" href="{{ url_for('start') }}">Start a campaign</a></div>
+{% endif %}
+{% endblock %}

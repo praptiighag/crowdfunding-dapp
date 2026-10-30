@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_macros.html" import addr, person with context %}
+{% block title %}Transaction {{ d.hash|hashshort }} · Vouch{% endblock %}
+{% block content %}
+{% set ev = evs[0] if evs else None %}
+{% if new %}
+<div class="confirmed"><i class="bi bi-check-circle-fill"></i>
+  <div><h2>Transaction confirmed</h2><p class="mb-0">It is now part of block {{ d.block }}. This page is your receipt.</p></div></div>
+<ol class="life" aria-label="Transaction progress">
+  <li style="--d:0s"><i class="bi bi-send-check"></i><span>Submitted<small>from {{ d.from|label }}</small></span></li>
+  <li style="--d:.6s"><i class="bi bi-box-seam"></i><span>Mined<small>block {{ d.block }}</small></span></li>
+  <li style="--d:1.2s"><i class="bi bi-patch-check"></i><span>Confirmed<small>recorded permanently</small></span></li>
+</ol>
+{% endif %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <span class="kind k-{{ d.kind }}">{{ kind_names[d.kind] }}</span>
+    <h1 class="detail-title mt-2">Transaction details</h1>
+    <p class="mono muted mb-0 text-break">{{ d.hash }}
+      <button class="copy" data-copy="{{ d.hash }}" aria-label="Copy hash"><i class="bi bi-clipboard"></i></button></p>
+  </div>
+  <div class="d-flex flex-wrap gap-2 no-print">
+    {% if ev and d.kind != 'other' %}<a class="btn btn-ink" href="{{ url_for('certificate', h=d.hash) }}"><i class="bi bi-patch-check"></i> View certificate</a>{% endif %}
+    {% if c %}<a class="btn btn-outline-ink" href="{{ url_for('campaign', cid=c.id) }}">Back to campaign</a>{% endif %}
+    <a class="btn btn-outline-ink" href="{{ url_for('verify', tx=d.hash, fp=fp) }}">Verify</a>
+  </div>
+</div>
+
+{% if ev and c %}
+<p class="summary">
+  {% if ev.kind == 'pledge' %}{{ person(ev.who) }} pledged <b>{{ ev.amount|eth }} ETH</b> to <a href="{{ url_for('campaign', cid=c.id) }}">{{ c.title }}</a>. The ETH is now held in escrow by the contract.
+  {% elif ev.kind == 'claim' %}<b>{{ ev.amount|eth }} ETH</b> was released from escrow to the creator {{ person(ev.who) }} for <a href="{{ url_for('campaign', cid=c.id) }}">{{ c.title }}</a>.
+  {% elif ev.kind == 'refund' %}<b>{{ ev.amount|eth }} ETH</b> was returned from escrow to {{ person(ev.who) }} because <a href="{{ url_for('campaign', cid=c.id) }}">{{ c.title }}</a> missed its goal.
+  {% else %}{{ person(ev.who) }} registered <a href="{{ url_for('campaign', cid=c.id) }}">{{ c.title }}</a> with a goal of <b>{{ c.goal|eth }} ETH</b>.{% endif %}
+</p>
+{% endif %}
+
+<dl class="kv big">
+  <dt>Status</dt><dd>{% if d.status %}<span class="kind k-claim"><i class="bi bi-check2"></i> Success</span>{% else %}<span class="kind k-refund">Failed</span>{% endif %}</dd>
+  <dt>Block</dt><dd>{{ d.block }}</dd>
+  <dt>Block hash</dt><dd class="mono text-break">{{ d.block_hash }}</dd>
+  <dt>Timestamp</dt><dd>{{ d.time|when }}</dd>
+  <dt>From</dt><dd class="d-flex flex-wrap align-items-center gap-2">{{ person(d.from) }} <span class="muted mono">{{ d.from|short }}</span></dd>
+  <dt>To</dt><dd>{% if d.to %}{{ addr(d.to) }} <span class="muted">{{ d.to|label }}</span>
+    {% else %}<span class="muted">Contract creation</span>{% if d.contract_address %} → {{ addr(d.contract_address) }}{% endif %}{% endif %}</dd>
+  <dt>Value</dt><dd>{{ d.value|eth }} ETH</dd>
+  <dt>Transaction fee</dt><dd>{{ d.fee|fee }} ETH <span class="muted">({{ d.gas_used }} gas × {{ (d.gas_price / 1e9)|round(2) }} gwei)</span></dd>
+  <dt>Gas limit</dt><dd>{{ d.gas }}</dd>
+  <dt>Nonce</dt><dd>{{ d.nonce }}</dd>
+</dl>
+
+{% if d.fn %}
+<h2 class="section-h">Decoded input</h2>
+<div class="table-wrap"><table class="tbl">
+  <thead><tr><th>Function</th><th>Parameter</th><th>Type</th><th>Value</th></tr></thead>
+  <tbody>
+  {% for p in d.params %}
+  <tr><td class="mono">{{ d.fn }}</td><td class="mono">{{ p[0] }}</td><td class="mono muted">{{ p[1] }}</td>
+    <td class="mono text-break">{{ p[2] }}{% if p[0].endswith('InWei') %} <span class="muted">= {{ p[2]|eth }} ETH</span>{% endif %}</td></tr>
+  {% endfor %}
+  {% if not d.params %}<tr><td class="mono">{{ d.fn }}</td><td colspan="3" class="muted">no parameters</td></tr>{% endif %}
+  </tbody>
+</table></div>
+{% if d.kind == 'pledge' %}<p class="muted small mt-2">A pledge carries its amount as the transaction value ({{ d.value|eth }} ETH), not as a parameter.</p>{% endif %}
+{% endif %}
+
+{% if evs %}
+<h2 class="section-h">Events emitted</h2>
+<ul class="ledger">
+  {% for e in evs %}
+  <li class="k-{{ e.kind }}"><span class="dot"></span><div>
+    <b>{{ {'create': 'CampaignCreated', 'pledge': 'Pledged', 'claim': 'FundsClaimed', 'refund': 'Refunded'}[e.kind] }}</b>
+    <div class="muted small">campaign #{{ e.cid }}{% if e.kind != 'create' %} · {{ e.amount|eth }} ETH{% endif %} · {{ e.who|short }}</div></div></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<h2 class="section-h">Proof</h2>
+<div class="proof">
+  <p class="mb-2">This record was read straight from the chain. Its fingerprint binds the transaction hash, the block hash and the contract address, so anyone can recompute it and check a certificate.</p>
+  <code class="fp">{{ fp }}</code>
+</div>
+{% endblock %}
